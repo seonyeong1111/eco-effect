@@ -1,5 +1,14 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
 
 const companies = [
   { id: 1, name: "삼성전자", basePrice: 50000 },
@@ -14,7 +23,7 @@ export default function Game() {
   const totalRounds = 15;
 
   const [round, setRound] = useState(1);
-  const [cash, setCash] = useState(1000000); // 초기 현금
+  const [cash, setCash] = useState(1000000);
   const [holdings, setHoldings] = useState(
     companies.reduce((acc, c) => ({ ...acc, [c.id]: 0 }), {})
   );
@@ -25,7 +34,7 @@ export default function Game() {
     companies.reduce((acc, c) => ({ ...acc, [c.id]: 0 }), {})
   );
 
-  // 힌트 관련 상태
+  // 힌트 관련
   const [hintCount, setHintCount] = useState(0);
   const [showHint, setShowHint] = useState(false);
   const maxHints = 5;
@@ -37,22 +46,11 @@ export default function Game() {
     "AI 기술 기업 상승 가능성",
   ];
 
-  // 디버깅용 상태 확인
-  useEffect(() => {
-    const totalStockValue = companies.reduce(
-      (sum, c) => sum + (holdings[c.id] * prices[c.id] || 0),
-      0
-    );
-    console.log("===== 상태 확인 =====");
-    console.log("Round:", round);
-    console.log("Cash:", cash);
-    console.log("Holdings:", holdings);
-    console.log("Prices:", prices);
-    console.log("총 자산(현금+주식):", cash + totalStockValue);
-    console.log("====================");
-  }, [round, cash, holdings, prices]);
+  // ✅ 총자산 기록
+  const [assetHistory, setAssetHistory] = useState([
+    { round: 1, totalAssets: 1000000 },
+  ]);
 
-  // 힌트 사용
   const handleUseHint = () => {
     if (hintCount >= maxHints) {
       alert("힌트는 최대 5회만 사용 가능합니다!");
@@ -62,7 +60,6 @@ export default function Game() {
     setShowHint(true);
   };
 
-  // 매수
   const handleBuy = (companyId) => {
     const price = prices[companyId];
     if (cash >= price) {
@@ -73,7 +70,6 @@ export default function Game() {
     }
   };
 
-  // 매도
   const handleSell = (companyId) => {
     if (holdings[companyId] > 0) {
       setCash(cash + prices[companyId]);
@@ -83,7 +79,6 @@ export default function Game() {
     }
   };
 
-  // 다음 라운드
   const handleNextRound = () => {
     const newPrices = {};
     const newChanges = {};
@@ -98,11 +93,18 @@ export default function Game() {
     setPrices(newPrices);
     setChanges(newChanges);
 
+    const newTotalAssets =
+      cash +
+      companies.reduce((sum, c) => sum + holdings[c.id] * newPrices[c.id], 0);
+
+    // 자산 기록 업데이트
+    setAssetHistory([
+      ...assetHistory,
+      { round: round + 1, totalAssets: newTotalAssets },
+    ]);
+
     if (round >= totalRounds) {
-      const totalAssets =
-        cash +
-        companies.reduce((sum, c) => sum + holdings[c.id] * newPrices[c.id], 0);
-      navigate("/result", { state: { assets: totalAssets } });
+      navigate("/result", { state: { assets: newTotalAssets } });
     } else {
       setRound(round + 1);
       setShowHint(false);
@@ -205,6 +207,35 @@ export default function Game() {
         <h2 className="text-xl font-semibold">팀 자산</h2>
         <p className="text-lg font-bold">{totalAssets.toLocaleString()} 원</p>
         <p>현금: {cash.toLocaleString()} 원</p>
+      </div>
+
+      {/* ✅ 총자산 그래프 */}
+      <div className="bg-white p-4 rounded-2xl shadow">
+        <h2 className="text-xl font-semibold mb-2">총자산 그래프</h2>
+        <ResponsiveContainer width="100%" height={300}>
+          <LineChart data={assetHistory}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis
+              dataKey="round"
+              label={{ value: "Round", position: "insideBottom", offset: -5 }}
+            />
+            <YAxis
+              label={{
+                value: "총자산",
+                angle: -90,
+                position: "insideLeft",
+                offset: 10,
+              }}
+            />
+            <Tooltip formatter={(value) => value.toLocaleString() + " 원"} />
+            <Line
+              type="monotone"
+              dataKey="totalAssets"
+              stroke="#8884d8"
+              strokeWidth={2}
+            />
+          </LineChart>
+        </ResponsiveContainer>
       </div>
     </div>
   );
